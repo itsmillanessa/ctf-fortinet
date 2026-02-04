@@ -1,0 +1,13 @@
+{
+  "team1": {
+    "fgt_wan_ip": "8.8.8.8",
+    "fgt_lan_ip": "10.0.1.1",
+    "fgt_dmz_ip": "10.0.2.1",
+    "lan_subnet": "10.0.1.0/24",
+    "dmz_subnet": "10.0.2.0/24", 
+    "wan_subnet": "10.0.0.0/24",
+    "flags": {
+      "test": "CTF{test_flag_123}"
+    }
+  }
+}

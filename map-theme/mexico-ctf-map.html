@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberDefensa México - Fortinet CTF</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0,0,0,0.8);
+            border-bottom: 2px solid #00ff41;
+        }
+
+        .header h1 {
+            color: #00ff41;
+            font-size: 2em;
+            text-shadow: 0 0 20px rgba(0,255,65,0.5);
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            color: #00ff41;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .map-container {
+            position: relative;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .mexico-map {
+            width: 100%;
+            height: auto;
+        }
+
+        /* City markers */
+        .city {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .city.locked {
+            background: #333;
+            border: 2px solid #666;
+            color: #666;
+        }
+
+        .city.available {
+            background: #1a1a1a;
+            border: 2px solid #00ff41;
+            color: #00ff41;
+            animation: pulse 2s infinite;
+        }
+
+        .city.completed {
+            background: #00ff41;
+            border: 2px solid #00ff41;
+            color: #000;
+            box-shadow: 0 0 20px #00ff41;
+        }
+
+        .city:hover {
+            transform: scale(1.3);
+            z-index: 100;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 5px #00ff41; }
+            50% { box-shadow: 0 0 20px #00ff41, 0 0 30px #00ff41; }
+        }
+
+        .city-label {
+            position: absolute;
+            top: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 10px;
+            color: #00ff41;
+            text-shadow: 0 0 5px #000;
+            pointer-events: none;
+        }
+
+        /* Challenge popup */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111;
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            z-index: 1000;
+            box-shadow: 0 0 50px rgba(0,255,65,0.3);
+        }
+
+        .popup.active {
+            display: block;
+        }
+
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 999;
+        }
+
+        .popup-overlay.active {
+            display: block;
+        }
+
+        .popup h2 {
+            color: #00ff41;
+            margin-bottom: 10px;
+        }
+
+        .popup .points {
+            display: inline-block;
+            background: #00ff41;
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .popup .description {
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .popup .difficulty {
+            margin-bottom: 20px;
+        }
+
+        .popup .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #00ff41;
+            color: #000;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            margin-right: 10px;
+        }
+
+        .popup .btn:hover {
+            box-shadow: 0 0 20px #00ff41;
+        }
+
+        .popup .btn-close {
+            background: #333;
+            color: #fff;
+        }
+
+        .popup .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .popup .status.completed {
+            background: rgba(0,255,65,0.2);
+            color: #00ff41;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            border: 1px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .legend h4 {
+            color: #00ff41;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+            color: #ccc;
+            font-size: 0.9em;
+        }
+
+        .legend-dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.locked { background: #333; border: 2px solid #666; }
+        .legend-dot.available { background: #1a1a1a; border: 2px solid #00ff41; }
+        .legend-dot.completed { background: #00ff41; }
+
+        /* Connection lines (SVG overlay) */
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection-line {
+            stroke: #00ff41;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ CYBERDEFENSA MÉXICO</h1>
+        <p>Equipo de Seguridad - Protegiendo las sedes corporativas de la República Mexicana</p>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <div class="stat-value" id="completed-count">0</div>
+            <div class="stat-label">Sedes Aseguradas</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="total-count">18</div>
+            <div class="stat-label">Total Sedes</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="points-count">0</div>
+            <div class="stat-label">Puntos</div>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <!-- SVG Map of Mexico -->
+        <svg class="mexico-map" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">
+            <!-- Mexico outline (simplified) -->
+            <path d="M 150 200 
+                     Q 100 180, 80 220 
+                     Q 60 280, 100 350 
+                     Q 140 420, 200 450 
+                     Q 280 480, 350 500 
+                     Q 450 530, 550 520 
+                     Q 650 510, 750 480 
+                     Q 850 450, 900 400 
+                     Q 950 350, 920 280 
+                     Q 890 220, 850 180 
+                     Q 800 140, 700 120 
+                     Q 600 100, 500 110 
+                     Q 400 120, 300 150 
+                     Q 200 180, 150 200 Z"
+                  fill="#1a1a2e" stroke="#00ff41" stroke-width="2"/>
+            
+            <!-- Baja California -->
+            <path d="M 80 120 Q 60 180, 70 250 Q 80 320, 100 350 L 120 320 Q 110 250, 100 180 Q 95 140, 80 120 Z"
+                  fill="#1a1a2e" stroke="#00ff41" stroke-width="2"/>
+            
+            <!-- Yucatan Peninsula -->
+            <path d="M 750 380 Q 800 350, 850 370 Q 900 400, 880 450 Q 850 480, 800 470 Q 750 450, 750 380 Z"
+                  fill="#1a1a2e" stroke="#00ff41" stroke-width="2"/>
+        </svg>
+
+        <!-- City markers - positioned over the map -->
+        <!-- Fase 1: FortiGate -->
+        <div class="city available" style="left: 48%; top: 55%;" data-challenge="1" data-name="Ciudad de México" data-category="HQ">
+            1
+            <span class="city-label">CDMX (HQ)</span>
+        </div>
+        
+        <div class="city available" style="left: 62%; top: 25%;" data-challenge="2" data-name="Monterrey" data-category="VPN">
+            2
+            <span class="city-label">Monterrey</span>
+        </div>
+        
+        <div class="city available" style="left: 35%; top: 48%;" data-challenge="3" data-name="Guadalajara" data-category="Firewall">
+            3
+            <span class="city-label">Guadalajara</span>
+        </div>
+        
+        <div class="city available" style="left: 12%; top: 22%;" data-challenge="4" data-name="Tijuana" data-category="DMZ">
+            4
+            <span class="city-label">Tijuana</span>
+        </div>
+        
+        <div class="city available" style="left: 45%; top: 40%;" data-challenge="5" data-name="Querétaro" data-category="Security">
+            5
+            <span class="city-label">Querétaro</span>
+        </div>
+        
+        <div class="city available" style="left: 38%; top: 38%;" data-challenge="6" data-name="León" data-category="Troubleshooting">
+            6
+            <span class="city-label">León</span>
+        </div>
+        
+        <div class="city available" style="left: 52%; top: 52%;" data-challenge="7" data-name="Puebla" data-category="Zero Trust">
+            7
+            <span class="city-label">Puebla</span>
+        </div>
+        
+        <div class="city available" style="left: 55%; top: 45%;" data-challenge="18" data-name="Tlaxcala" data-category="SOC Integration">
+            8
+            <span class="city-label">Tlaxcala</span>
+        </div>
+
+        <!-- Fase 2: FortiAnalyzer -->
+        <div class="city locked" style="left: 88%; top: 62%;" data-challenge="8" data-name="Cancún" data-category="Log Analysis">
+            9
+            <span class="city-label">Cancún</span>
+        </div>
+        
+        <div class="city locked" style="left: 82%; top: 58%;" data-challenge="9" data-name="Mérida" data-category="Threat Hunting">
+            10
+            <span class="city-label">Mérida</span>
+        </div>
+        
+        <div class="city locked" style="left: 58%; top: 60%;" data-challenge="10" data-name="Oaxaca" data-category="Filters">
+            11
+            <span class="city-label">Oaxaca</span>
+        </div>
+        
+        <div class="city locked" style="left: 68%; top: 55%;" data-challenge="11" data-name="Villahermosa" data-category="DNS">
+            12
+            <span class="city-label">Villahermosa</span>
+        </div>
+        
+        <div class="city locked" style="left: 75%; top: 50%;" data-challenge="12" data-name="Campeche" data-category="Correlation">
+            13
+            <span class="city-label">Campeche</span>
+        </div>
+        
+        <div class="city locked" style="left: 30%; top: 55%;" data-challenge="13" data-name="Colima" data-category="Reports">
+            14
+            <span class="city-label">Colima</span>
+        </div>
+        
+        <div class="city locked" style="left: 25%; top: 42%;" data-challenge="14" data-name="Mazatlán" data-category="Alerts">
+            15
+            <span class="city-label">Mazatlán</span>
+        </div>
+        
+        <div class="city locked" style="left: 18%; top: 35%;" data-challenge="15" data-name="Los Cabos" data-category="Forensics">
+            16
+            <span class="city-label">Los Cabos</span>
+        </div>
+        
+        <div class="city locked" style="left: 55%; top: 30%;" data-challenge="16" data-name="Saltillo" data-category="IOC Hunting">
+            17
+            <span class="city-label">Saltillo</span>
+        </div>
+        
+        <div class="city locked" style="left: 70%; top: 35%;" data-challenge="17" data-name="Tampico" data-category="Final Boss">
+            18
+            <span class="city-label">Tampico</span>
+        </div>
+    </div>
+
+    <div class="legend">
+        <h4>🗺️ Leyenda</h4>
+        <div class="legend-item">
+            <div class="legend-dot available"></div>
+            <span>Sede disponible</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot completed"></div>
+            <span>Sede asegurada</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot locked"></div>
+            <span>Requiere Fase 2</span>
+        </div>
+    </div>
+
+    <div class="popup-overlay" onclick="closePopup()"></div>
+    <div class="popup">
+        <h2 id="popup-title">Ciudad</h2>
+        <span class="points" id="popup-points">100 pts</span>
+        <span class="difficulty" id="popup-difficulty">🟢 Fácil</span>
+        <p class="description" id="popup-description">Descripción del challenge...</p>
+        <div id="popup-status"></div>
+        <button class="btn" onclick="goToChallenge()">🚀 Ir al Challenge</button>
+        <button class="btn btn-close" onclick="closePopup()">Cerrar</button>
+    </div>
+
+    <script>
+        // Challenge data (would come from CTFd API in production)
+        const challenges = {
+            1: { name: "Primer Acceso", city: "Ciudad de México", points: 100, difficulty: "🟢 Fácil", desc: "Conecta al HQ y encuentra la flag oculta en el sistema.", phase: 1 },
+            2: { name: "Ábrete Sésamo", city: "Monterrey", points: 100, difficulty: "🟢 Fácil", desc: "Configura la política NAT para la sede norte.", phase: 1 },
+            3: { name: "¿Quién Anda Ahí?", city: "Guadalajara", points: 100, difficulty: "🟢 Fácil", desc: "Bloquea las IPs maliciosas que atacan la sede.", phase: 1 },
+            4: { name: "Visión de Túnel", city: "Tijuana", points: 200, difficulty: "🟡 Medio", desc: "Establece el túnel VPN con la frontera.", phase: 1 },
+            5: { name: "Inspector Gadget", city: "Querétaro", points: 200, difficulty: "🟡 Medio", desc: "Activa la inspección de seguridad.", phase: 1 },
+            6: { name: "El Infiltrado", city: "León", points: 300, difficulty: "🔴 Difícil", desc: "Diagnostica y repara la red comprometida.", phase: 1 },
+            7: { name: "Héroe Zero Trust", city: "Puebla", points: 300, difficulty: "🔴 Difícil", desc: "Implementa arquitectura Zero Trust.", phase: 1 },
+            18: { name: "Conexión al SOC", city: "Tlaxcala", points: 150, difficulty: "🟡 Medio", desc: "Conecta FortiGate con el SOC central.", phase: 1 },
+            8: { name: "Bienvenido al SOC", city: "Cancún", points: 150, difficulty: "🟢 Fácil", desc: "Familiarízate con FortiAnalyzer.", phase: 2 },
+            9: { name: "Cazador de Amenazas", city: "Mérida", points: 200, difficulty: "🟡 Medio", desc: "Identifica la comunicación C2.", phase: 2 },
+            10: { name: "Maestro de Filtros", city: "Oaxaca", points: 200, difficulty: "🟡 Medio", desc: "Crea filtros avanzados de logs.", phase: 2 },
+            11: { name: "Detective de DNS", city: "Villahermosa", points: 250, difficulty: "🔴 Difícil", desc: "Detecta exfiltración por DNS.", phase: 2 },
+            12: { name: "Correlación de Eventos", city: "Campeche", points: 300, difficulty: "🔴 Difícil", desc: "Correlaciona el ataque APT.", phase: 2 },
+            13: { name: "Creador de Reportes", city: "Colima", points: 200, difficulty: "🟡 Medio", desc: "Genera reportes ejecutivos.", phase: 2 },
+            14: { name: "Arquitecto de Alertas", city: "Mazatlán", points: 250, difficulty: "🔴 Difícil", desc: "Configura alertas proactivas.", phase: 2 },
+            15: { name: "Análisis Forense", city: "Los Cabos", points: 350, difficulty: "⚫ Experto", desc: "Investiga el insider threat.", phase: 2 },
+            16: { name: "Cazador de IOCs", city: "Saltillo", points: 300, difficulty: "🔴 Difícil", desc: "Busca indicadores de compromiso.", phase: 2 },
+            17: { name: "Maestro SOC", city: "Tampico", points: 400, difficulty: "⚫ Experto", desc: "Reconstruye el ataque APT completo.", phase: 2 }
+        };
+
+        let currentChallenge = null;
+        const completedChallenges = new Set(); // Would load from CTFd API
+
+        // Add click handlers to cities
+        document.querySelectorAll('.city').forEach(city => {
+            city.addEventListener('click', () => {
+                const challengeId = parseInt(city.dataset.challenge);
+                showPopup(challengeId);
+            });
+        });
+
+        function showPopup(challengeId) {
+            currentChallenge = challengeId;
+            const challenge = challenges[challengeId];
+            
+            document.getElementById('popup-title').textContent = `📍 ${challenge.city} - ${challenge.name}`;
+            document.getElementById('popup-points').textContent = `${challenge.points} pts`;
+            document.getElementById('popup-difficulty').textContent = challenge.difficulty;
+            document.getElementById('popup-description').textContent = challenge.desc;
+            
+            const statusDiv = document.getElementById('popup-status');
+            if (completedChallenges.has(challengeId)) {
+                statusDiv.innerHTML = '<div class="status completed">✅ Sede asegurada</div>';
+            } else if (challenge.phase === 2) {
+                statusDiv.innerHTML = '<div class="status" style="background:rgba(255,165,0,0.2);color:#ffa500;">⚠️ Requiere completar "Conexión al SOC" primero</div>';
+            } else {
+                statusDiv.innerHTML = '';
+            }
+            
+            document.querySelector('.popup').classList.add('active');
+            document.querySelector('.popup-overlay').classList.add('active');
+        }
+
+        function closePopup() {
+            document.querySelector('.popup').classList.remove('active');
+            document.querySelector('.popup-overlay').classList.remove('active');
+        }
+
+        function goToChallenge() {
+            // In production, this would go to the CTFd challenge page
+            window.location.href = `/challenges#challenge-${currentChallenge}`;
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('completed-count').textContent = completedChallenges.size;
+            let totalPoints = 0;
+            completedChallenges.forEach(id => {
+                if (challenges[id]) totalPoints += challenges[id].points;
+            });
+            document.getElementById('points-count').textContent = totalPoints;
+        }
+
+        // In production, fetch challenge states from CTFd API
+        // fetch('/api/v1/challenges').then(...)
+        
+        updateStats();
+    </script>
+</body>
+</html>

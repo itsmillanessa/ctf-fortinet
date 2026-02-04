@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Misiones - Fortinet Security CTF</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #00d26a;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span {
+            color: #00d26a;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav a {
+            color: #888;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav a:hover, .nav a.active {
+            color: #00d26a;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .title-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .title-section h1 {
+            font-size: 2.5rem;
+            color: #00d26a;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(0, 210, 106, 0.5);
+        }
+
+        .title-section p {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.phase1 {
+            background: #00d26a;
+            box-shadow: 0 0 15px #00d26a;
+            animation: pulse 2s infinite;
+        }
+
+        .legend-dot.phase2 {
+            background: #444;
+            border: 2px solid #666;
+        }
+
+        .legend-dot.completed {
+            background: #ffd700;
+            box-shadow: 0 0 15px #ffd700;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 15px #00d26a; }
+            50% { box-shadow: 0 0 30px #00d26a, 0 0 60px #00d26a; }
+        }
+
+        .map-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid #333;
+        }
+
+        #mexico-map {
+            width: 100%;
+            max-width: 1200px;
+            height: auto;
+            margin: 0 auto;
+            display: block;
+        }
+
+        #mexico-map path {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            stroke: #333;
+            stroke-width: 1;
+        }
+
+        #mexico-map path:hover {
+            filter: brightness(1.3);
+            stroke: #00d26a;
+            stroke-width: 2;
+        }
+
+        #mexico-map path.completed {
+            fill: #00d26a !important;
+            filter: drop-shadow(0 0 10px #00d26a);
+        }
+
+        #mexico-map path.locked {
+            fill: #333 !important;
+            opacity: 0.5;
+        }
+
+        #mexico-map path.available {
+            animation: glow 2s infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 5px currentColor); }
+            50% { filter: drop-shadow(0 0 20px currentColor) brightness(1.2); }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #00d26a;
+            border-radius: 10px;
+            padding: 1rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            min-width: 250px;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip h3 {
+            color: #00d26a;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .tooltip .challenge-name {
+            color: #fff;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tooltip .points {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .tooltip .phase {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .tooltip .phase.phase1 {
+            background: rgba(0, 210, 106, 0.2);
+            color: #00d26a;
+        }
+
+        .tooltip .phase.phase2 {
+            background: rgba(255, 165, 0, 0.2);
+            color: #ffa500;
+        }
+
+        .tooltip .status {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .tooltip .status.available {
+            color: #00d26a;
+        }
+
+        .tooltip .status.locked {
+            color: #888;
+        }
+
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            stroke: #00d26a;
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+            opacity: 0.5;
+            animation: dash 20s linear infinite;
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: -100; }
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: #00d26a;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #00ff80;
+            box-shadow: 0 0 20px #00d26a;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #00d26a;
+            color: #00d26a;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 210, 106, 0.1);
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00d26a;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .city-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00d26a;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 0 15px #00d26a;
+            animation: pulse 2s infinite;
+        }
+
+        .city-marker.locked {
+            background: #444;
+            box-shadow: none;
+            animation: none;
+        }
+
+        .city-marker.completed {
+            background: #ffd700;
+            box-shadow: 0 0 15px #ffd700;
+        }
+
+        .city-marker span {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 0.75rem;
+            color: #fff;
+            text-shadow: 0 0 5px #000;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span>⚡ FORTINET SECURITY CTF ⚡</span>
+        </div>
+        <nav class="nav">
+            <a href="#">Inicio</a>
+            <a href="#" class="active">Mapa de Misiones</a>
+            <a href="#">Usuarios</a>
+            <a href="#">Equipos</a>
+            <a href="#">Marcador</a>
+            <a href="#">Desafíos</a>
+        </nav>
+    </header>
+
+    <main class="main-container">
+        <section class="title-section">
+            <h1>🛡️ CYBERDEFENSA MÉXICO</h1>
+            <p>Equipo de Seguridad Nacional — Protege las 18 sedes corporativas</p>
+        </section>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot phase1"></div>
+                <span>Fase 1 — Disponible</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot phase2"></div>
+                <span>Fase 2 — Bloqueado</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot completed"></div>
+                <span>Completado</span>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <svg id="mexico-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 624 468">
+                <defs>
+                    <filter id="glow-green">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <filter id="glow-gold">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                
+                <g id="mexico-states">
+                    <!-- Baja California - Challenge 1: Inventario de Red -->
+                    <path id="baja-california" data-challenge="1" data-city="Tijuana" data-name="Inventario de Red" data-points="100" data-phase="1" data-status="available"
+                        d="M 192.0 184.5 L 189.5 184.0 L 189.5 182.0 L 185.0 176.5 L 181.0 178.5 L 176.0 169.5 L 168.5 167.0 L 164.5 160.0 L 166.5 157.0 L 166.0 153.5 L 163.0 153.5 L 161.0 151.5 L 159.0 153.5 L 157.0 151.5 L 156.0 152.5 L 149.5 144.0 L 144.5 141.0 L 141.5 137.0 L 142.5 135.0 L 136.5 131.0 L 135.5 125.0 L 132.5 123.0 L 125.5 109.0 L 124.5 102.0 L 119.5 96.0 L 120.5 86.0 L 117.0 82.5 L 111.0 82.5 L 109.5 79.0 L 103.0 74.5 L 102.5 77.0 L 100.0 78.5 L 92.0 72.5 L 88.0 71.5 L 84.5 62.0 L 86.0 58.5 L 90.0 58.5 L 157.0 83.5 L 193.5 84.0 L 192.5 94.0 L 200.5 100.0 L 201.5 105.0 L 200.5 122.0 L 198.5 123.0 L 199.5 141.0 L 201.5 145.0 L 200.0 146.5 L 192.0 145.5 L 190.5 149.0 L 192.5 154.0 L 199.5 162.0 L 198.5 168.0 L 202.5 175.0 L 192.0 184.5 Z" 
+                        fill="#00d26a" class="available"/>
+                    
+                    <!-- Guanajuato - Challenge 9: Primer Contacto (FAZ) -->
+                    <path id="guanajuato" data-challenge="9" data-city="León" data-name="Primer Contacto" data-points="100" data-phase="2" data-status="locked"
+                        d="M 301.0 289.5 L 292.0 286.5 L 290.5 283.0 L 294.5 280.0 L 293.5 276.0 L 302.5 270.0 L 302.5 266.0 L 296.0 261.5 L 294.5 263.0 L 295.5 266.0 L 292.0 268.5 L 292.5 261.0 L 289.5 259.0 L 289.0 256.5 L 285.0 256.5 L 285.5 264.0 L 281.0 264.5 L 281.5 251.0 L 283.5 248.0 L 283.5 244.0 L 288.5 240.0 L 288.5 231.0 L 291.0 230.5 L 298.0 223.5 L 307.0 225.5 L 312.0 224.5 L 312.5 215.0 L 309.5 211.0 L 321.0 210.5 L 326.5 215.0 L 328.0 218.5 L 332.0 218.5 L 335.0 216.5 L 339.0 221.5 L 341.5 222.0 L 331.0 235.5 L 320.0 244.5 L 318.0 243.5 L 315.5 247.0 L 315.5 252.0 L 317.5 256.0 L 324.0 263.5 L 327.0 263.5 L 330.0 260.5 L 333.5 262.0 L 331.5 264.0 L 332.5 271.0 L 330.0 273.5 L 326.0 272.5 L 322.5 269.0 L 322.5 267.0 L 317.0 262.5 L 315.0 262.5 L 312.0 265.5 L 309.0 265.5 L 308.5 269.0 L 305.5 272.0 L 306.5 280.0 L 308.5 281.0 L 308.5 283.0 L 302.0 285.5 L 301.0 289.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Yucatan - Challenge 16: Inteligencia de Amenazas -->
+                    <path id="yucatan" data-challenge="16" data-city="Mérida" data-name="Inteligencia de Amenazas" data-points="350" data-phase="2" data-status="locked"
+                        d="M 550.0 314.5 L 540.0 301.5 L 533.5 300.0 L 535.0 290.5 L 543.0 286.5 L 560.0 284.5 L 569.0 280.5 L 578.0 280.5 L 580.0 282.5 L 584.5 283.0 L 584.5 292.0 L 580.0 299.5 L 577.0 301.5 L 572.0 301.5 L 568.0 306.5 L 550.0 314.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Tlaxcala - Challenge 13: El Infiltrado -->
+                    <path id="tlaxcala" data-challenge="13" data-city="Tlaxcala" data-name="El Infiltrado" data-points="300" data-phase="2" data-status="locked"
+                        d="M 387.0 317.5 L 384.0 317.5 L 383.5 315.0 L 381.0 312.5 L 378.0 312.5 L 377.0 309.5 L 374.0 309.5 L 369.0 313.5 L 366.5 307.0 L 364.0 307.5 L 361.5 304.0 L 361.5 302.0 L 367.5 298.0 L 367.5 295.0 L 370.5 291.0 L 369.5 290.0 L 375.0 288.5 L 376.0 286.5 L 378.0 288.5 L 385.0 287.5 L 390.5 290.0 L 389.0 293.5 L 385.5 294.0 L 383.5 300.0 L 383.5 303.0 L 386.0 304.5 L 392.0 298.5 L 393.5 299.0 L 393.5 301.0 L 388.5 305.0 L 388.5 307.0 L 391.5 309.0 L 388.5 314.0 L 389.5 315.0 L 387.0 317.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Quintana Roo - Challenge 17: El Informe Ejecutivo -->
+                    <path id="quintana-roo" data-challenge="17" data-city="Cancún" data-name="El Informe Ejecutivo" data-points="200" data-phase="2" data-status="locked"
+                        d="M 499.0 413.5 L 490.5 405.0 L 489.0 401.5 L 486.0 400.5 L 469.0 384.5 L 466.5 384.0 L 466.5 373.0 L 469.5 370.0 L 470.5 366.0 L 475.5 361.0 L 480.0 350.5 L 484.5 352.0 L 484.5 358.0 L 489.0 361.5 L 491.0 361.5 L 498.0 354.5 L 506.0 352.5 L 512.5 360.0 L 513.5 364.0 L 520.0 370.5 L 525.0 372.5 L 527.5 375.0 L 527.5 378.0 L 531.5 380.0 L 531.5 384.0 L 530.0 385.5 L 508.0 385.5 L 506.5 387.0 L 499.5 399.0 L 499.5 402.0 L 501.5 404.0 L 499.0 413.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Sonora - Challenge 3: Lista Negra -->
+                    <path id="sonora" data-challenge="3" data-city="Hermosillo" data-name="Lista Negra" data-points="200" data-phase="1" data-status="available"
+                        d="M 235.0 199.5 L 230.0 198.5 L 225.5 194.0 L 224.0 189.5 L 216.5 188.0 L 215.5 179.0 L 212.0 173.5 L 207.0 170.5 L 201.5 171.0 L 200.5 161.0 L 193.5 153.0 L 191.5 148.0 L 193.0 146.5 L 201.0 147.5 L 202.5 146.0 L 199.5 126.0 L 199.5 124.0 L 201.5 123.0 L 202.5 101.0 L 199.0 96.5 L 193.5 93.0 L 194.5 84.0 L 208.0 83.5 L 209.0 73.5 L 240.0 73.5 L 245.0 80.5 L 248.0 81.5 L 260.0 93.5 L 266.5 97.0 L 271.5 106.0 L 271.5 112.0 L 274.5 118.0 L 284.0 125.5 L 287.0 125.5 L 295.5 131.0 L 284.5 153.0 L 290.5 178.0 L 281.0 176.5 L 274.0 184.5 L 265.0 180.5 L 260.0 182.5 L 248.0 174.5 L 244.5 177.0 L 244.5 183.0 L 239.5 185.0 L 240.5 191.0 L 238.5 192.0 L 238.5 196.0 L 235.0 199.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- San Luis Potosi - Challenge 8: Conexión al SOC -->
+                    <path id="san-luis-potosi" data-challenge="8" data-city="San Luis Potosí" data-name="Conexión al SOC" data-points="200" data-phase="1" data-status="available"
+                        d="M 380.0 287.5 L 374.5 285.0 L 373.0 278.5 L 368.0 282.5 L 365.0 282.5 L 363.0 280.5 L 361.0 282.5 L 351.0 277.5 L 347.0 281.5 L 339.0 275.5 L 336.0 276.5 L 332.5 273.0 L 334.5 270.0 L 334.5 261.0 L 333.0 259.5 L 329.0 259.5 L 325.0 262.5 L 317.5 253.0 L 317.5 246.0 L 320.0 246.5 L 328.0 238.5 L 332.0 236.5 L 343.0 222.5 L 346.5 228.0 L 346.5 234.0 L 348.5 237.0 L 348.5 247.0 L 351.0 249.5 L 354.0 247.5 L 356.0 250.5 L 357.5 250.0 L 358.5 253.0 L 356.5 254.0 L 356.5 256.0 L 365.0 260.5 L 369.0 259.5 L 370.5 263.0 L 373.0 264.5 L 383.0 264.5 L 387.5 268.0 L 385.0 271.5 L 382.5 272.0 L 384.5 276.0 L 381.5 280.0 L 384.5 283.0 L 380.0 287.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Baja California Sur - Challenge 2: Blindaje Básico -->
+                    <path id="baja-california-sur" data-challenge="2" data-city="Mexicali" data-name="Blindaje Básico" data-points="150" data-phase="1" data-status="available"
+                        d="M 123.0 151.5 L 103.0 151.5 L 101.5 150.0 L 102.5 142.0 L 100.5 138.0 L 97.0 136.5 L 95.5 133.0 L 85.0 122.5 L 72.5 115.0 L 72.5 112.0 L 70.5 110.0 L 70.5 104.0 L 65.5 99.0 L 66.5 95.0 L 60.5 89.0 L 61.5 86.0 L 54.5 77.0 L 55.5 71.0 L 50.5 67.0 L 50.5 64.0 L 47.5 61.0 L 47.0 57.5 L 87.5 54.0 L 87.5 56.0 L 84.5 58.0 L 82.5 62.0 L 84.5 65.0 L 83.5 70.0 L 86.5 72.0 L 87.5 75.0 L 85.5 87.0 L 89.5 94.0 L 89.5 107.0 L 91.5 111.0 L 94.5 113.0 L 94.5 115.0 L 102.0 119.5 L 108.5 126.0 L 110.5 134.0 L 113.0 133.5 L 114.0 135.5 L 116.5 136.0 L 118.5 142.0 L 122.5 144.0 L 123.0 151.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Nayarit - Challenge 5: Segmentación -->
+                    <path id="nayarit" data-challenge="5" data-city="Tepic" data-name="Segmentación" data-points="200" data-phase="1" data-status="available"
+                        d="M 257.0 261.5 L 254.0 260.5 L 242.5 249.0 L 233.5 236.0 L 221.5 226.0 L 222.5 224.0 L 221.0 221.5 L 217.0 221.5 L 212.5 219.0 L 212.5 212.0 L 206.0 206.5 L 203.0 206.5 L 198.5 203.0 L 196.5 200.0 L 197.0 195.5 L 192.0 200.5 L 186.5 196.0 L 186.5 192.0 L 189.5 188.0 L 192.0 188.5 L 192.5 186.0 L 203.5 177.0 L 203.5 174.0 L 206.0 171.5 L 211.5 176.0 L 214.5 181.0 L 215.5 189.0 L 222.0 190.5 L 229.5 200.0 L 227.5 203.0 L 228.5 215.0 L 234.5 220.0 L 239.0 227.5 L 245.0 225.5 L 247.5 228.0 L 249.5 232.0 L 249.5 239.0 L 253.5 247.0 L 258.5 251.0 L 255.5 256.0 L 257.0 261.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Veracruz - Challenge 14: Forense de Red -->
+                    <path id="veracruz" data-challenge="14" data-city="Veracruz" data-name="Forense de Red" data-points="250" data-phase="2" data-status="locked"
+                        d="M 469.0 364.5 L 450.0 363.5 L 449.5 361.0 L 445.5 357.0 L 445.0 353.5 L 438.0 357.5 L 435.0 357.5 L 433.5 352.0 L 435.5 349.0 L 433.0 345.5 L 427.0 344.5 L 423.5 338.0 L 419.0 335.5 L 417.5 336.0 L 418.5 339.0 L 417.0 339.5 L 416.0 337.5 L 412.0 338.5 L 410.0 335.5 L 407.5 335.0 L 408.5 328.0 L 413.5 325.0 L 413.0 323.5 L 410.0 323.5 L 406.5 319.0 L 407.5 313.0 L 410.5 308.0 L 407.0 305.5 L 401.0 306.5 L 399.5 305.0 L 402.5 302.0 L 402.5 299.0 L 399.5 297.0 L 399.0 294.5 L 396.0 294.5 L 394.0 297.5 L 392.0 296.5 L 388.0 301.5 L 385.5 302.0 L 387.5 295.0 L 390.0 295.5 L 392.5 291.0 L 389.0 285.5 L 387.0 287.5 L 385.5 286.0 L 386.5 284.0 L 383.5 279.0 L 386.5 277.0 L 386.5 275.0 L 384.5 274.0 L 388.5 269.0 L 387.0 264.5 L 390.0 263.5 L 397.5 269.0 L 399.5 279.0 L 404.5 287.0 L 408.5 298.0 L 422.5 315.0 L 424.5 324.0 L 430.5 330.0 L 432.5 336.0 L 445.0 336.5 L 449.0 339.5 L 452.0 339.5 L 456.0 346.5 L 464.0 346.5 L 465.5 349.0 L 464.5 351.0 L 473.5 358.0 L 473.5 361.0 L 469.0 364.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Queretaro - Challenge 11: Cazador de Amenazas -->
+                    <path id="queretaro" data-challenge="11" data-city="Querétaro" data-name="Cazador de Amenazas" data-points="200" data-phase="2" data-status="locked"
+                        d="M 348.0 311.5 L 339.0 311.5 L 339.5 309.0 L 338.0 307.5 L 331.5 308.0 L 332.0 303.5 L 328.0 302.5 L 326.0 305.5 L 323.0 304.5 L 320.5 300.0 L 322.5 298.0 L 320.5 294.0 L 324.5 288.0 L 330.5 284.0 L 329.5 280.0 L 331.5 279.0 L 332.0 275.5 L 335.0 277.5 L 340.0 277.5 L 346.0 282.5 L 350.0 282.5 L 351.0 279.5 L 361.5 285.0 L 361.5 288.0 L 357.0 288.5 L 355.0 293.5 L 348.5 292.0 L 346.5 300.0 L 350.5 308.0 L 348.5 309.0 L 348.0 311.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Oaxaca - Challenge 15: La Cadena Rota -->
+                    <path id="oaxaca" data-challenge="15" data-city="Oaxaca" data-name="La Cadena Rota" data-points="300" data-phase="2" data-status="locked"
+                        d="M 386.0 379.5 L 384.0 379.5 L 380.0 375.5 L 378.0 376.5 L 370.0 373.5 L 364.0 373.5 L 355.0 367.5 L 341.0 363.5 L 331.0 355.5 L 329.0 355.5 L 324.0 349.5 L 319.0 348.5 L 318.5 347.0 L 324.5 344.0 L 323.5 340.0 L 325.0 338.5 L 329.0 340.5 L 343.0 340.5 L 346.0 343.5 L 347.5 341.0 L 344.5 338.0 L 344.5 335.0 L 347.0 333.5 L 348.5 334.0 L 352.0 342.5 L 358.0 337.5 L 362.0 337.5 L 364.0 335.5 L 370.0 341.5 L 373.0 340.5 L 377.0 347.5 L 387.5 352.0 L 387.5 362.0 L 393.5 368.0 L 392.5 372.0 L 389.5 373.0 L 386.0 379.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Sinaloa - Challenge 4: Túnel Seguro -->
+                    <path id="sinaloa" data-challenge="4" data-city="Culiacán" data-name="Túnel Seguro" data-points="250" data-phase="1" data-status="available"
+                        d="M 178.0 253.5 L 174.5 253.0 L 173.5 246.0 L 170.0 240.5 L 165.0 238.5 L 159.0 231.5 L 147.0 223.5 L 145.0 220.5 L 143.0 221.5 L 140.5 216.0 L 137.5 215.0 L 138.5 198.0 L 136.5 193.0 L 131.0 186.5 L 127.0 185.5 L 120.5 180.0 L 118.5 177.0 L 119.5 173.0 L 117.0 172.5 L 115.0 176.5 L 112.0 175.5 L 110.0 177.5 L 105.0 171.5 L 96.0 168.5 L 94.5 164.0 L 90.0 161.5 L 85.5 157.0 L 86.0 155.5 L 91.0 157.5 L 96.0 155.5 L 101.0 160.5 L 104.5 159.0 L 104.5 157.0 L 100.5 155.0 L 102.0 152.5 L 124.5 153.0 L 125.5 157.0 L 132.5 162.0 L 134.5 168.0 L 138.5 171.0 L 140.5 179.0 L 144.0 182.5 L 145.5 180.0 L 143.5 178.0 L 146.5 179.0 L 146.5 182.0 L 148.5 183.0 L 150.5 190.0 L 150.5 197.0 L 156.5 203.0 L 156.5 206.0 L 162.5 215.0 L 161.5 223.0 L 163.5 228.0 L 168.0 231.5 L 171.0 226.5 L 180.5 237.0 L 180.5 240.0 L 184.5 242.0 L 184.5 249.0 L 178.0 253.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Tamaulipas - Challenge 6: Alta Disponibilidad -->
+                    <path id="tamaulipas" data-challenge="6" data-city="Monterrey" data-name="Alta Disponibilidad" data-points="300" data-phase="1" data-status="available"
+                        d="M 396.0 264.5 L 393.0 264.5 L 391.0 261.5 L 388.0 263.5 L 382.0 262.5 L 378.0 264.5 L 372.0 262.5 L 369.0 257.5 L 364.0 258.5 L 357.5 255.0 L 359.5 254.0 L 357.5 246.0 L 359.5 245.0 L 360.5 239.0 L 366.0 237.5 L 368.5 235.0 L 368.5 233.0 L 365.5 231.0 L 365.5 222.0 L 363.5 221.0 L 369.0 217.5 L 373.0 217.5 L 375.0 211.5 L 380.0 210.5 L 386.5 205.0 L 386.5 203.0 L 384.5 202.0 L 384.5 192.0 L 380.0 190.5 L 377.0 191.5 L 375.0 189.5 L 374.0 190.5 L 373.5 187.0 L 369.5 183.0 L 369.5 180.0 L 365.5 178.0 L 366.5 176.0 L 363.5 173.0 L 363.5 164.0 L 362.0 161.5 L 359.5 161.0 L 362.0 159.5 L 366.5 161.0 L 366.5 171.0 L 371.5 177.0 L 374.0 184.5 L 379.0 185.5 L 382.0 188.5 L 386.0 188.5 L 389.0 191.5 L 400.0 192.5 L 405.0 196.5 L 407.0 194.5 L 408.5 195.0 L 408.5 199.0 L 403.5 208.0 L 399.5 222.0 L 398.5 236.0 L 396.5 237.0 L 398.5 240.0 L 398.5 253.0 L 395.5 259.0 L 396.0 264.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Campeche - Challenge 18: Respuesta al Incidente -->
+                    <path id="campeche" data-challenge="18" data-city="Villahermosa" data-name="Respuesta al Incidente" data-points="300" data-phase="2" data-status="locked"
+                        d="M 554.0 351.5 L 523.0 351.5 L 522.0 349.5 L 514.0 346.5 L 511.0 346.5 L 509.0 349.5 L 506.0 349.5 L 501.5 346.0 L 501.5 340.0 L 497.0 339.5 L 496.5 337.0 L 502.0 336.5 L 502.5 339.0 L 505.0 339.5 L 507.0 342.5 L 513.0 341.5 L 518.5 337.0 L 515.5 333.0 L 527.5 323.0 L 527.5 317.0 L 532.5 311.0 L 532.0 299.5 L 533.0 301.5 L 540.5 304.0 L 549.5 315.0 L 550.5 319.0 L 557.5 326.0 L 555.5 333.0 L 556.5 346.0 L 554.0 351.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Guerrero - Challenge 10: El Observador -->
+                    <path id="guerrero" data-challenge="10" data-city="Acapulco" data-name="El Observador" data-points="150" data-phase="2" data-status="locked"
+                        d="M 317.0 349.5 L 295.0 342.5 L 290.5 336.0 L 294.0 331.5 L 301.0 331.5 L 306.0 326.5 L 309.0 326.5 L 311.5 324.0 L 311.5 321.0 L 310.0 319.5 L 309.0 320.5 L 307.5 317.0 L 308.5 312.0 L 307.0 310.5 L 303.0 310.5 L 302.5 309.0 L 320.0 303.5 L 323.0 307.5 L 328.0 307.5 L 330.0 304.5 L 332.0 310.5 L 336.0 310.5 L 342.0 313.5 L 348.0 313.5 L 351.5 311.0 L 353.0 307.5 L 354.5 312.0 L 353.5 322.0 L 351.5 323.0 L 349.5 328.0 L 342.5 334.0 L 343.5 338.0 L 330.0 339.5 L 328.0 337.5 L 324.0 337.5 L 322.5 339.0 L 322.5 344.0 L 319.0 344.5 L 317.0 349.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Chihuahua - Challenge 7: Acceso Remoto -->
+                    <path id="chihuahua" data-challenge="7" data-city="Chihuahua" data-name="Acceso Remoto" data-points="250" data-phase="1" data-status="available"
+                        d="M 342.0 220.5 L 339.0 219.5 L 336.0 215.5 L 330.0 216.5 L 324.0 210.5 L 319.0 208.5 L 309.0 209.5 L 305.0 216.5 L 301.0 215.5 L 294.5 207.0 L 295.5 202.0 L 297.5 200.0 L 298.5 185.0 L 291.5 178.0 L 286.5 153.0 L 297.5 132.0 L 301.0 132.5 L 306.5 127.0 L 305.5 125.0 L 308.5 118.0 L 316.0 113.5 L 319.0 115.5 L 331.0 115.5 L 345.5 130.0 L 345.5 133.0 L 351.5 146.0 L 356.5 150.0 L 359.5 155.0 L 358.0 158.5 L 355.0 155.5 L 350.5 158.0 L 349.5 164.0 L 346.0 164.5 L 342.5 168.0 L 342.5 171.0 L 344.0 172.5 L 346.5 172.0 L 346.5 177.0 L 345.0 178.5 L 343.0 177.5 L 334.5 185.0 L 340.5 192.0 L 341.5 198.0 L 345.5 201.0 L 344.5 203.0 L 347.0 205.5 L 352.5 207.0 L 345.0 207.5 L 341.5 211.0 L 343.5 217.0 L 342.0 220.5 Z" 
+                        fill="#00d26a" class="available"/>
+
+                    <!-- Quintana Roo 2 -->
+                    <path id="quintana-roo-2" data-challenge="17" data-city="Cancún" data-name="El Informe Ejecutivo" data-points="200" data-phase="2" data-status="locked"
+                        d="M 561.0 349.5 L 556.5 348.0 L 558.5 346.0 L 558.5 340.0 L 556.5 336.0 L 558.5 324.0 L 551.5 317.0 L 553.0 314.5 L 560.0 312.5 L 572.0 306.5 L 573.0 303.5 L 581.0 300.5 L 585.5 293.0 L 585.5 283.0 L 591.0 283.5 L 594.0 280.5 L 597.5 284.0 L 598.5 289.0 L 596.5 294.0 L 585.5 307.0 L 585.5 313.0 L 580.5 317.0 L 580.5 319.0 L 584.5 321.0 L 581.5 323.0 L 581.5 326.0 L 583.5 328.0 L 580.5 340.0 L 579.0 341.5 L 578.0 339.5 L 575.5 339.0 L 576.5 332.0 L 575.0 331.5 L 571.5 335.0 L 571.5 338.0 L 565.5 341.0 L 561.0 349.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Jalisco - Challenge 10: El Observador -->
+                    <path id="jalisco" data-challenge="10" data-city="Guadalajara" data-name="El Observador" data-points="150" data-phase="2" data-status="locked"
+                        d="M 276.0 263.5 L 272.0 258.5 L 267.5 259.0 L 269.5 256.0 L 267.0 252.5 L 257.0 248.5 L 254.5 246.0 L 254.5 243.0 L 250.5 238.0 L 251.5 231.0 L 246.0 224.5 L 242.0 224.5 L 240.0 226.5 L 228.5 210.0 L 228.5 205.0 L 230.5 201.0 L 236.0 200.5 L 239.5 197.0 L 239.5 193.0 L 242.5 190.0 L 241.5 186.0 L 245.5 184.0 L 245.5 180.0 L 248.0 176.5 L 259.0 183.5 L 271.0 183.5 L 274.0 186.5 L 282.0 177.5 L 291.0 179.5 L 297.5 186.0 L 296.5 199.0 L 293.5 202.0 L 293.5 208.0 L 300.0 216.5 L 303.0 216.5 L 305.0 218.5 L 309.0 212.5 L 311.5 215.0 L 311.5 222.0 L 310.0 223.5 L 297.0 222.5 L 287.5 231.0 L 287.5 233.0 L 285.5 234.0 L 285.5 241.0 L 282.5 243.0 L 280.5 250.0 L 280.5 260.0 L 279.0 262.5 L 276.0 263.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Puebla - Challenge 12: Patrón de Ataque -->
+                    <path id="puebla" data-challenge="12" data-city="Puebla" data-name="Patrón de Ataque" data-points="250" data-phase="2" data-status="locked"
+                        d="M 389.0 350.5 L 381.0 348.5 L 375.5 343.0 L 378.0 340.5 L 382.5 341.0 L 381.5 334.0 L 383.5 329.0 L 383.0 321.5 L 390.0 328.5 L 394.0 326.5 L 396.0 327.5 L 398.0 324.5 L 400.0 325.5 L 401.5 324.0 L 397.0 318.5 L 390.5 315.0 L 392.5 310.0 L 391.5 305.0 L 395.5 301.0 L 395.5 297.0 L 398.0 295.5 L 398.5 299.0 L 401.5 301.0 L 397.5 302.0 L 397.5 306.0 L 402.0 309.5 L 405.0 306.5 L 408.5 308.0 L 406.5 316.0 L 404.5 318.0 L 404.5 322.0 L 411.5 325.0 L 406.5 327.0 L 407.5 331.0 L 405.5 335.0 L 411.0 340.5 L 415.0 339.5 L 416.5 342.0 L 412.0 346.5 L 407.0 345.5 L 404.0 348.5 L 401.5 346.0 L 401.0 341.5 L 396.5 346.0 L 398.0 349.5 L 392.0 347.5 L 389.0 350.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Michoacan - Challenge 12: Patrón de Ataque -->
+                    <path id="michoacan" data-challenge="12" data-city="CDMX" data-name="Patrón de Ataque" data-points="250" data-phase="2" data-status="locked"
+                        d="M 300.0 329.5 L 294.5 329.0 L 294.5 324.0 L 291.0 319.5 L 289.0 321.5 L 283.0 319.5 L 280.0 323.5 L 277.0 323.5 L 273.0 326.5 L 270.0 323.5 L 268.0 323.5 L 265.5 319.0 L 261.5 316.0 L 254.5 303.0 L 261.0 301.5 L 264.5 294.0 L 271.0 291.5 L 279.0 297.5 L 280.5 297.0 L 281.5 289.0 L 285.0 287.5 L 286.5 284.0 L 282.5 281.0 L 283.5 276.0 L 278.5 269.0 L 280.0 266.5 L 283.0 265.5 L 286.0 265.5 L 288.0 268.5 L 290.0 260.5 L 289.5 266.0 L 291.0 270.5 L 294.0 270.5 L 298.0 264.5 L 301.5 267.0 L 299.0 271.5 L 292.5 275.0 L 292.5 279.0 L 291.0 281.5 L 289.5 281.0 L 289.0 287.5 L 302.0 291.5 L 302.5 287.0 L 307.0 286.5 L 310.5 282.0 L 310.5 280.0 L 307.5 279.0 L 309.0 276.5 L 312.0 278.5 L 318.0 278.5 L 324.0 272.5 L 329.5 275.0 L 327.5 280.0 L 328.5 284.0 L 325.0 285.5 L 318.5 294.0 L 320.5 298.0 L 318.5 300.0 L 318.5 303.0 L 313.0 303.5 L 300.5 309.0 L 302.0 311.5 L 306.5 313.0 L 306.5 320.0 L 309.5 322.0 L 309.5 324.0 L 300.0 329.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Chiapas -->
+                    <path id="chiapas" data-challenge="18" data-city="Tuxtla" data-name="Respuesta al Incidente" data-points="300" data-phase="2" data-status="locked"
+                        d="M 426.0 392.5 L 415.0 391.5 L 409.0 387.5 L 398.0 386.5 L 391.0 381.5 L 386.5 381.0 L 388.5 380.0 L 388.5 377.0 L 393.5 373.0 L 394.5 369.0 L 393.5 365.0 L 388.5 361.0 L 388.5 352.0 L 392.0 349.5 L 395.0 349.5 L 396.0 351.5 L 399.0 350.5 L 398.5 346.0 L 400.0 343.5 L 404.0 350.5 L 407.0 346.5 L 413.0 347.5 L 419.5 339.0 L 422.0 338.5 L 428.0 347.5 L 432.0 346.5 L 433.5 348.0 L 431.5 354.0 L 435.0 359.5 L 443.0 356.5 L 448.5 362.0 L 449.0 364.5 L 468.5 366.0 L 468.5 369.0 L 465.5 372.0 L 464.5 376.0 L 465.0 382.5 L 460.0 380.5 L 457.0 382.5 L 456.0 379.5 L 454.0 380.5 L 450.0 378.5 L 441.0 386.5 L 428.0 390.5 L 426.0 392.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Hidalgo -->
+                    <path id="hidalgo" data-challenge="11" data-city="Pachuca" data-name="Cazador de Amenazas" data-points="200" data-phase="2" data-status="locked"
+                        d="M 351.0 247.5 L 349.5 244.0 L 349.5 236.0 L 347.5 233.0 L 347.5 226.0 L 343.5 221.0 L 343.5 211.0 L 347.0 208.5 L 353.0 209.5 L 354.5 207.0 L 347.5 203.0 L 347.5 201.0 L 342.5 196.0 L 341.5 190.0 L 336.5 185.0 L 343.0 179.5 L 345.0 180.5 L 347.5 178.0 L 348.5 171.0 L 346.0 169.5 L 344.0 170.5 L 343.5 169.0 L 346.0 166.5 L 350.0 165.5 L 351.5 159.0 L 355.0 157.5 L 359.0 159.5 L 358.5 162.0 L 361.5 164.0 L 361.5 174.0 L 364.5 176.0 L 363.5 179.0 L 368.5 181.0 L 367.5 185.0 L 372.5 188.0 L 373.0 191.5 L 377.0 193.5 L 382.0 192.5 L 383.5 194.0 L 383.5 203.0 L 385.5 204.0 L 378.0 210.5 L 373.0 210.5 L 371.0 215.5 L 361.5 221.0 L 364.5 224.0 L 364.5 232.0 L 366.5 234.0 L 365.0 236.5 L 361.0 236.5 L 359.5 238.0 L 357.5 242.0 L 358.5 243.0 L 356.0 243.5 L 355.0 246.5 L 351.0 247.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Colima -->
+                    <path id="colima" data-challenge="9" data-city="Colima" data-name="Primer Contacto" data-points="100" data-phase="2" data-status="locked"
+                        d="M 279.0 295.5 L 272.0 290.5 L 267.0 292.5 L 266.0 291.5 L 262.0 295.5 L 258.5 295.0 L 263.5 288.0 L 263.5 281.0 L 261.0 280.5 L 255.5 273.0 L 254.5 264.0 L 259.5 262.0 L 257.5 257.0 L 259.0 252.5 L 264.0 252.5 L 267.5 255.0 L 265.5 259.0 L 266.0 261.5 L 271.0 259.5 L 275.0 264.5 L 278.5 264.0 L 276.5 270.0 L 282.5 276.0 L 280.5 282.0 L 284.5 284.0 L 284.0 286.5 L 280.5 287.0 L 279.0 295.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Morelos -->
+                    <path id="morelos" data-challenge="13" data-city="Cuernavaca" data-name="El Infiltrado" data-points="300" data-phase="2" data-status="locked"
+                        d="M 353.0 340.5 L 351.5 340.0 L 350.5 333.0 L 347.5 332.0 L 352.5 326.0 L 352.5 324.0 L 355.5 322.0 L 355.5 313.0 L 360.5 307.0 L 360.0 305.5 L 366.5 310.0 L 365.5 312.0 L 369.0 315.5 L 376.0 310.5 L 375.5 314.0 L 377.0 315.5 L 379.0 313.5 L 382.5 316.0 L 380.5 319.0 L 381.0 329.5 L 377.5 327.0 L 377.5 324.0 L 373.0 318.5 L 369.5 323.0 L 369.5 331.0 L 367.5 332.0 L 366.5 335.0 L 364.0 333.5 L 362.0 335.5 L 356.0 336.5 L 353.0 340.5 Z" 
+                        fill="#333" class="locked"/>
+
+                    <!-- Tabasco -->
+                    <path id="tabasco" data-challenge="15" data-city="Villahermosa" data-name="La Cadena Rota" data-points="300" data-phase="2" data-status="locked"
+                        d="M 490.0 360.5 L 485.5 355.0 L 486.5 351.0 L 485.0 349.5 L 484.0 350.5 L 480.0 348.5 L 475.0 358.5 L 472.0 354.5 L 466.5 351.0 L 465.5 346.0 L 467.0 344.5 L 474.0 343.5 L 476.0 341.5 L 481.0 341.5 L 483.0 343.5 L 490.0 339.5 L 491.0 341.5 L 492.5 340.0 L 492.0 337.5 L 494.0 337.5 L 496.0 340.5 L 500.0 340.5 L 500.5 347.0 L 504.5 350.0 L 497.0 353.5 L 490.0 360.5 Z" 
+                        fill="#333" class="locked"/>
+                </g>
+
+                <g id="outline">
+                    <path d="M 500.0 414.5 L 477.0 393.5 L 463.0 385.5 L 449.0 383.5 L 441.0 388.5 L 422.0 394.5 L 407.0 388.5 L 398.0 388.5 L 393.0 384.5 L 385.0 382.5 L 380.0 377.5 L 363.0 374.5 L 356.0 369.5 L 340.0 364.5 L 322.0 350.5 L 317.0 351.5 L 295.0 344.5 L 287.0 334.5 L 278.0 328.5 L 268.0 325.5 L 253.5 305.0 L 254.0 301.5 L 261.5 299.0 L 256.5 296.0 L 261.5 290.0 L 261.5 282.0 L 254.5 274.0 L 251.5 260.0 L 239.5 249.0 L 231.5 236.0 L 211.5 220.0 L 203.0 207.5 L 185.5 200.0 L 185.5 191.0 L 188.5 183.0 L 185.0 179.5 L 180.0 179.5 L 175.0 171.5 L 163.5 166.0 L 163.5 155.0 L 159.0 155.5 L 152.0 151.5 L 148.5 145.0 L 144.0 143.5 L 136.0 132.5 L 133.0 137.5 L 127.5 134.0 L 129.5 127.0 L 132.5 126.0 L 118.5 97.0 L 117.5 88.0 L 119.5 87.0 L 109.0 83.5 L 106.0 77.5 L 99.0 79.5 L 92.0 74.5 L 87.5 78.0 L 91.5 107.0 L 96.0 114.5 L 99.0 114.5 L 108.5 123.0 L 114.5 134.0 L 117.5 134.0 L 119.5 141.0 L 124.5 143.0 L 126.5 156.0 L 138.5 167.0 L 140.5 174.0 L 143.0 173.5 L 147.5 178.0 L 150.5 188.0 L 156.5 191.0 L 153.5 198.0 L 157.5 202.0 L 159.5 209.0 L 163.0 209.5 L 166.5 214.0 L 162.5 220.0 L 163.5 225.0 L 168.0 228.5 L 169.0 220.5 L 176.0 229.5 L 175.5 225.0 L 178.5 226.0 L 179.5 234.0 L 185.5 241.0 L 186.5 248.0 L 181.0 253.5 L 175.0 255.5 L 169.0 241.5 L 149.0 226.5 L 144.0 227.5 L 132.5 217.0 L 136.5 205.0 L 136.5 197.0 L 132.5 190.0 L 119.0 179.5 L 113.0 176.5 L 109.0 178.5 L 100.0 170.5 L 94.0 169.5 L 92.5 164.0 L 79.5 154.0 L 94.0 155.5 L 100.5 148.0 L 100.5 141.0 L 84.0 123.5 L 70.5 116.0 L 69.5 106.0 L 63.5 100.0 L 64.5 94.0 L 59.5 90.0 L 59.5 85.0 L 51.5 74.0 L 54.5 72.0 L 49.5 68.0 L 44.5 57.0 L 89.0 52.5 L 89.0 57.5 L 155.0 81.5 L 207.0 81.5 L 208.0 72.5 L 241.0 72.5 L 246.0 79.5 L 269.5 98.0 L 275.5 117.0 L 298.0 130.5 L 304.5 126.0 L 307.5 116.0 L 313.0 114.5 L 315.0 111.5 L 332.0 114.5 L 344.5 126.0 L 353.5 146.0 L 367.5 160.0 L 368.5 171.0 L 374.5 183.0 L 390.0 190.5 L 401.0 191.5 L 404.0 194.5 L 410.5 193.0 L 410.5 198.0 L 404.5 209.0 L 400.5 224.0 L 398.5 269.0 L 407.5 280.0 L 406.5 290.0 L 409.5 297.0 L 423.5 313.0 L 425.5 323.0 L 434.0 332.5 L 453.0 338.5 L 458.0 345.5 L 473.0 340.5 L 488.0 339.5 L 495.0 335.5 L 507.0 335.5 L 521.0 327.5 L 526.5 322.0 L 526.5 315.0 L 530.5 312.0 L 532.5 291.0 L 542.0 285.5 L 558.0 283.5 L 573.0 278.5 L 585.0 281.5 L 594.0 278.5 L 600.5 288.0 L 595.5 298.0 L 588.5 305.0 L 586.5 309.0 L 587.5 314.0 L 583.5 317.0 L 587.0 317.5 L 587.5 321.0 L 583.5 323.0 L 586.5 325.0 L 580.5 344.0 L 577.5 345.0 L 574.0 336.5 L 571.0 340.5 L 567.5 341.0 L 561.0 351.5 L 556.0 350.5 L 555.0 353.5 L 523.0 353.5 L 522.5 363.0 L 517.5 365.0 L 533.5 379.0 L 532.5 386.0 L 509.0 386.5 L 500.5 400.0 L 502.5 406.0 L 500.0 414.5 Z" fill="none" stroke="#00d26a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.5"/>
+                </g>
+            </svg>
+
+            <div class="tooltip" id="tooltip">
+                <h3 id="tooltip-city"></h3>
+                <div class="challenge-name" id="tooltip-name"></div>
+                <div class="points">🎯 <span id="tooltip-points"></span> puntos</div>
+                <div class="phase" id="tooltip-phase"></div>
+                <div class="status" id="tooltip-status"></div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn btn-primary" onclick="window.location.href='challenges.html'">⚔️ Ver Challenges</button>
+            <button class="btn btn-secondary" onclick="window.location.href='resources.html'">📋 Ver Recursos</button>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat">
+                <div class="stat-value">8/18</div>
+                <div class="stat-label">Challenges Disponibles</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">0/18</div>
+                <div class="stat-label">Completados</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">4,050</div>
+                <div class="stat-label">Puntos Totales</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Tu Puntuación</div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        Desarrollado para CTFd — Fortinet Security CTF 2026
+    </footer>
+
+    <script>
+        const tooltip = document.getElementById('tooltip');
+        const tooltipCity = document.getElementById('tooltip-city');
+        const tooltipName = document.getElementById('tooltip-name');
+        const tooltipPoints = document.getElementById('tooltip-points');
+        const tooltipPhase = document.getElementById('tooltip-phase');
+        const tooltipStatus = document.getElementById('tooltip-status');
+
+        document.querySelectorAll('#mexico-states path').forEach(path => {
+            path.addEventListener('mouseenter', (e) => {
+                const challenge = path.dataset.challenge;
+                const city = path.dataset.city;
+                const name = path.dataset.name;
+                const points = path.dataset.points;
+                const phase = path.dataset.phase;
+                const status = path.dataset.status;
+
+                tooltipCity.textContent = `📍 ${city}`;
+                tooltipName.textContent = `Challenge ${challenge}: ${name}`;
+                tooltipPoints.textContent = points;
+                tooltipPhase.textContent = phase === '1' ? '🛡️ Fase 1 - FortiGate' : '🔍 Fase 2 - FortiAnalyzer';
+                tooltipPhase.className = `phase phase${phase}`;
+                
+                if (status === 'available') {
+                    tooltipStatus.textContent = '✅ Disponible';
+                    tooltipStatus.className = 'status available';
+                } else if (status === 'locked') {
+                    tooltipStatus.textContent = '🔒 Bloqueado - Completa Fase 1';
+                    tooltipStatus.className = 'status locked';
+                } else if (status === 'completed') {
+                    tooltipStatus.textContent = '🏆 Completado';
+                    tooltipStatus.className = 'status completed';
+                }
+
+                tooltip.classList.add('visible');
+            });
+
+            path.addEventListener('mousemove', (e) => {
+                tooltip.style.left = (e.pageX + 15) + 'px';
+                tooltip.style.top = (e.pageY + 15) + 'px';
+            });
+
+            path.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+
+            path.addEventListener('click', () => {
+                const status = path.dataset.status;
+                if (status === 'available' || status === 'completed') {
+                    window.location.href = `challenge.html?id=${path.dataset.challenge}`;
+                } else {
+                    alert('🔒 Este challenge está bloqueado.\n\nCompleta los challenges de Fase 1 para desbloquear Fase 2.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

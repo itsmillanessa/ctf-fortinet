@@ -1,0 +1,11 @@
+# Credentials - NEVER commit
+aws_creds.env
+*.env
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.backup
+
+# Generated archive
+.ctf_app.zip

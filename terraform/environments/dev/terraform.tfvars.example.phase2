@@ -1,0 +1,84 @@
+# =============================================================================
+# CTF FORTINET — PHASE 2 EXAMPLE CONFIGURATION
+# =============================================================================
+# Example terraform.tfvars for deploying full CTF with FortiAnalyzer (Phase 2)
+# Copy this to terraform.tfvars and customize for your environment
+# =============================================================================
+
+# --- Basic Configuration ---
+aws_region = "us-east-1"
+event_name = "fortinet-ctf-monterrey"
+key_name   = "ctf-keypair"  # Your EC2 key pair name
+
+# --- Team Configuration ---
+team_count = 5  # Deploy 5 team stacks
+
+# --- FortiGate Configuration ---
+fgt_ami          = "ami-0abcdef1234567890"  # FortiGate PAYG AMI from AWS Marketplace
+admin_password   = "YourSecurePassword123!"
+use_spot         = true  # Use spot instances for cost savings
+challenge_mode   = "normal"  # or "the_insider" for specific challenges
+
+# --- Phase Deployment Control ---
+deploy_ctfd           = true   # CTFd scoring platform
+deploy_utility        = true   # Flag server + traffic generator  
+deploy_fortianalyzer  = true   # Phase 2 - FortiAnalyzer log analysis
+
+# --- FortiAnalyzer Configuration ---
+fortianalyzer_instance_type = "m5.large"  # 2 vCPU, 8GB RAM - good for 5 teams
+
+# --- Security ---
+admin_cidr = "0.0.0.0/0"  # Restrict to your IP: "1.2.3.4/32"
+
+# --- CTFd Configuration ---
+ctfd_admin_password = "CTFAdmin2026!"
+
+# =============================================================================
+# DEPLOYMENT COMMANDS
+# =============================================================================
+#
+# Deploy Phase 1 only (FortiGate challenges):
+#   terraform apply -var="deploy_fortianalyzer=false"
+#
+# Deploy both phases (FortiGate + FortiAnalyzer):
+#   terraform apply -var="deploy_fortianalyzer=true"
+#
+# Add FortiAnalyzer to existing Phase 1 deployment:
+#   terraform apply -var="deploy_fortianalyzer=true"
+#
+# =============================================================================
+# EXPECTED OUTPUTS
+# =============================================================================
+#
+# With deploy_fortianalyzer=true, you'll get:
+#
+# PHASE 1 ACCESS (per team):
+# - FortiGate URL: https://[IP]
+# - Username: ctfplayer / Password: CTFPlayer2026!
+# - 7 challenges, 1,300 points total
+#
+# PHASE 2 ACCESS (per team):  
+# - FortiAnalyzer URL: https://[IP]
+# - Username: team-1-analyst / Password: CTFteam-12026!
+# - 10 analytical challenges, 2,550 points total
+#
+# ADMIN ACCESS:
+# - FortiAnalyzer: admin / FortiCTF2026!
+# - CTFd: admin / CTFAdmin2026!
+# - Flag Server: http://[utility-ip]:8080
+#
+# =============================================================================
+# COST ESTIMATION (us-east-1, 4 hours event)
+# =============================================================================
+#
+# With 5 teams, full deployment:
+# - FortiGates (5x t3.small spot): ~$2.00
+# - FortiAnalyzer (1x m5.large): ~$1.20  
+# - CTFd (1x t3.medium): ~$0.80
+# - Utility (1x t3.micro): ~$0.20
+# - Networking: ~$0.30
+# 
+# Total: ~$4.50 for 4-hour event
+# Annual savings with spot: ~60-70%
+#
+# =============================================================================
